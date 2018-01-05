@@ -1,11 +1,10 @@
-#  ╔═══╗
-#  ║╔═╗║
-#  ╚╝╔╝║
-#  ──║╔╝
-#  ──╔╗
-#  ──╚╝    Hungry LLC 
-#            Drafted 1/4/2018.
-#            Nitin Bhandari
+#  #######
+#  # ### #
+#  ### # #
+#      # #
+#      ###      Hungry LLC 
+#                 Drafted 1/4/2018.
+#      ###        Nitin Bhandari
 
 # This method is responsible for pulling restaurants from the FourSquare API and gathering their information as well as menu and inputting them into a backend database.
 # It is intended to be run as a single script to gather restaurant/menu information.
@@ -45,7 +44,10 @@ def getAllRestIdsInCity(areasToConsider,lim=1):
 	    data = json.loads(resp.text)
 	    print data
 	    print("Option...")
-	    retVal = data['response']['venues']
+	    venList = data['response']['venues']
+	    retVal = []
+	    for item in venList:
+	    	retVal.append(item['id'])
 	    #Now each of the ID's are contained in the list here under id
 	    #Eg: print data['response']['venues'][0]['id']
 	    with io.open('resturant_data.json', 'a+') as outfile:
@@ -61,6 +63,8 @@ def getAllRestIdsInCity(areasToConsider,lim=1):
 res_places = ["Kansas City"]#, "Wichita", "Topeka", "Overland Park", "Lawrence", "Olathe", "Lenexa", "Shawnee"
 #This gets all the IDs.
 resIds = getAllRestIdsInCity(res_places)
+print("My venue ids I can use: ")
+print(resIds)
 #Now use these URLS:
 #rest_url = 'https://api.foursquare.com/v2/venues/'4adb44c6f964a520672521e3'
 #menu_url = 'https://api.foursquare.com/v2/venues/'4adb44c6f964a520672521e3/menu'
