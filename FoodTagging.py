@@ -73,23 +73,13 @@ class GetDescriptorWords(object):
 		coord = pd.Series(latlng)  # Add parameter index=self.ind to start indices from 1 instead of 0
 		return coord
 
-	###########################################################################
-	#### This method is return the cosine similarity between two strings ######
-	###########################################################################
+	##########################################################################################################################
+	#### This method is return the cosine similarity between two strings #####################################################
+	##########################################################################################################################
+	### Source: https://stackoverflow.com/questions/15173225/calculate-cosine-similarity-given-2-sentence-strings/15173821 ###
+	##########################################################################################################################
 
-	def getCosineSimilarity(self, string1, string2):
-		
-		#######################################################################
-		#### This helper function is used to convert strings into vectors #####
-		#######################################################################
-
-		def text_to_vector(self, text):
-    		word = re.compile(r'\w+')
-   			words = word.findall(text)
-    		return Counter(words)
-
-		vec1 = self.text_to_vector(string1)
-		vec2 = self.text_to_vector(string2)
+	def get_cosine(self, vec1, vec2):
 		intersection = set(vec1.keys()) & set(vec2.keys())
     	numerator = sum([vec1[x] * vec2[x] for x in intersection])
 
@@ -101,6 +91,23 @@ class GetDescriptorWords(object):
         	return 0.0
     	else:
         	return float(numerator) / denominator
+
+
+	def text_to_vector(self, text):
+		word = re.compile(r'\w+')
+    	words = word.findall(text)
+    	return Counter(words)
+
+
+	def getCosineSimilarity(self, content_a, content_b):
+		text1 = content_a
+    	text2 = content_b
+
+    	vector1 = self.text_to_vector(text1)
+    	vector2 = self.text_to_vector(text2)
+
+    	cosine_result = self.get_cosine(vector1, vector2)
+    	return cosine_result
 
 	###########################################################################
 	#### This method is responsible for getting the menu of the restuarant ####
@@ -167,6 +174,7 @@ class GetDescriptorWords(object):
 			new_item_price = []
 			new_item_entry_name = []
 			new_item_entry_id = []
+			new_item_res = []
 
 			#########################################################
 			###### UNABLE TO ACCESS DESCRIPTION FROM JSON DATA ######
@@ -174,44 +182,66 @@ class GetDescriptorWords(object):
 			#################### HELP REQ. ##########################
 			#########################################################
 
-			'''
+			
 			if  jsonData2['response']['menu']['menus']['count'] == 0:
 				print 'Menu not found'
 			else:
 				num_entries = jsonData2['response']['menu']['menus']['items'][0]['entries']['count']
 				#print type(num_entries)
 				self.food_items = self.food_items[:4]
-				for i in self.food_items:
+				for i,l in zip(self.food_items, self.res_names):
 					for j in range(num_entries):
 						num_items = jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['count']
 						for k in range(num_items):
 							if i == jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name']:
-								description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
-								price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
-								entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
-							
+								try:
+									description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
+									price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
+								except Exception as e:
+									raise e
+								else:
+									description.append('Not Available')
+									price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
 							elif (self.getCosineSimilarity(i, jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])) > 0.7:
-								description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
-								price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
-								entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
-								entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
-							
+								try:
+									description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
+									price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
+									entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
+								except Exception as e:
+									raise e
+								else:
+									description.append('Not Available')
+									price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
+									entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
 							else:
-								#print '{} is NOT EQUAL to {}'.format(i, jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
-								#print 'STORING NEW FOOD ITEM INFORMATION........'
-								print type(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
-					
-								new_item_description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
-								new_item_price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
-								new_item_entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
-								new_item_entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
-								new_item_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
+								try:
+									print '{} is NOT EQUAL to {}'.format(i, jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
+									print 'STORING NEW FOOD ITEM INFORMATION........'
+									print type(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
+									new_item_description.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['description'])
+									new_item_price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									new_item_entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
+									new_item_entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
+									new_item_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
+									new_item_res.append(l) # To keep track of food item belonging to what restaurant
+								except Exception as e:
+									raise e
+								else:
+									new_item_description.append('Not Available')
+									new_item_price.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['price'])
+									new_item_entry_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['name'])
+									new_item_entry_id.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['entryId'])
+									new_item_name.append(jsonData2['response']['menu']['menus']['items'][0]['entries']['items'][j]['entries']['items'][k]['name'])
+									new_item_res.append(l)
+							
 			
-				'''
+				
 			
 			
-		
-
 
 if __name__ == "__main__":
 	des = GetDescriptorWords()
