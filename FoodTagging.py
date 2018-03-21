@@ -35,8 +35,17 @@ import math
 import pyrebase
 import os
 from dotenv import load_dotenv
-import keys
+import Keys
 
+dotenv_path = ".env"
+load_dotenv(dotenv_path, verbose=True)
+
+FourSquare_CLIENT_ID = os.environ.get("FourSquare_CLIENT_ID")
+FourSquare_CLIENT_SECRET = os.environ.get("FourSquare_CLIENT_SECRET")
+FourSquare_FOOD_CAT = os.environ.get("FourSquare_FOOD_CAT")
+Google_API_KEY = os.environ.get("GOOGLPLACESAPI")
+
+print("google api: " , Google_API_KEY)
 
 class GetDescriptorWords(object):
 
@@ -50,6 +59,15 @@ class GetDescriptorWords(object):
         self.food_items = pd.Series([x.replace('_', ' ') for x in self.data['|__descrip']], index=self.ind)
         self.res_names = pd.Series(self.data['|__name'], index=self.ind)
         self.res_add = pd.Series([x.replace(' ','+').rstrip(x[-6:]) for x in self.data['|__location']], index=self.ind)
+
+        #print("The data: ")
+        #print(self.data)
+        #print("\n\n")
+        #print(self.ind)
+        #print(self.food_items)
+        #print(self.res_names)
+        #print(self.res_add)
+        #os.exit()
     
     ##########################################
     ######## Supporter Methods ###############
@@ -67,9 +85,11 @@ class GetDescriptorWords(object):
         #print UniqueList
         coord = []
         latlng = []
-        for i in range(0, 4):      ## Change loop to for address in addresses & replace addressList[i] with address in GeoURL
+        for i in range(0, 5): 
+        #for i in range(0, len(UniqueList)):      ## Change loop to for address in addresses & replace addressList[i] with address in GeoURL
             #print addressList[i]
-            GeoUrl = base_url + 'address=' + addressList[i] + "&key=" + api
+            print("Address: " , UniqueList[i],api)
+            GeoUrl = base_url + 'address=' + UniqueList[i] + "&key=" + api
             #print GeoUrl
             response = urllib.urlopen(GeoUrl)
             jsonRaw = response.read()
@@ -113,6 +133,76 @@ class GetDescriptorWords(object):
         cosine_result = self.get_cosine(vector1, vector2)
         return cosine_result
 
+    #This tries to construct all the correct additions. 
+    def saveIt(self,item,foodName="temp",restName="temp",saveName=False):
+        #print("Found a match and saving:" + str(item))
+        retVal = {}
+        retVal['restName'] = restName
+        retVal['ourMenuName'] = foodName
+        try:
+            if saveName:
+                retVal['name'] = item['name']
+                #self.entry_name.append(item['name'])
+            retVal['price'] = item['price']
+            #self.price.append(item['price'])
+            retVal['entryId'] = item['entryId']
+            #self.entry_id.append(item['entryId'])
+            retVal['description'] = item['description']
+            #self.description.append(item['description'])
+        except Exception as e:
+            #raise e
+            retVal['description'] = 'Not Available'
+            #self.description.append('Not Available')
+        self.correctItems.append(retVal)
+
+            
+
+    # This method takes in a specific foodName and restName from our database, and searches through the possible results (in posEntries) to see if anything lines up. 
+    # @param foodName       Name of the fooditem (string)
+    # @param restName       Name of the restaurant (string)
+    # @param posEntries     The list of all possible options from the restuarant.
+    def locateAndSaveInformation(self,foodName,restName, posEntries,threshold=0.7):
+        for j in range(posEntries['count']): #This is like desert, lunch, etc.
+            indItems = posEntries['items'][j]['entries']
+
+            num_items = indItems['count']
+            allItems = indItems['items']
+            for k in range(num_items):
+
+                item = allItems[k]
+                itemName = item['name']
+                #print("Analyzing: " + str(itemName))
+                if (foodName == itemName):
+                    #Try to save it
+                    #print("Saving: ")
+                    self.saveIt(item,foodName=foodName,restName=restName,saveName=True)
+                    return True
+                elif (self.getCosineSimilarity(foodName,itemName)>threshold):
+                    self.saveIt(item,foodName=foodName,restName=restName,saveName=True)
+                    return True
+                    #break
+                else:
+                    try:
+                        print '{} is NOT EQUAL to {}'.format(i, itemName)
+                        print 'STORING NEW FOOD ITEM INFORMATION........'
+                        print type(itemName)
+                        self.new_item_description.append(item['description'])
+                        self.new_item_price.append(item['price'])
+                        self.new_item_entry_name.append(item['name'])
+                        self.new_item_entry_id.append(item['entryId'])
+                        self.new_item_name.append(itemName)
+                        self.new_item_res.append(l) # To keep track of food item belonging to what restaurant
+                    except Exception as e:
+                        pass
+                    else:
+                        self.new_item_description.append('Not Available')
+                        self.new_item_price.append(item['price'])
+                        self.new_item_entry_name.append(item['name'])
+                        self.new_item_entry_id.append(item['entryId'])
+                        self.new_item_name.append(item['name'])
+                        self.new_item_res.append(l)
+
+
     ###########################################################################
     #### This method is responsible for getting the menu of the restuarant ####
     ###########################################################################
@@ -141,9 +231,11 @@ class GetDescriptorWords(object):
 
         for i in ll:
             venue_url = search_url + "ll=" + i + "&client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SEC + "&category_id=" + FOOD_CAT+ "&v=20170801"
+            print("FoodTagging. Searching: " + str(venue_url))
             response = urllib.urlopen(venue_url)
             jsonRaw = response.read()
-            jsonData = json.loads(jsonRaw)          
+            jsonData = json.loads(jsonRaw)    
+            #print("Response data First: " , jsonData)      
             id_res = str(jsonData["response"]["venues"][0]["id"])
             res_id.append(id_res)
             #print res_id
@@ -153,83 +245,72 @@ class GetDescriptorWords(object):
             jsonRaw2 = resp.read()
             jsonData2 = json.loads(jsonRaw2)
 
+            #print("Response data: " , jsonData2)
+
             #### Lists to store description, price, entry_name and entry_id of the food_item and later
             #### converting them into DataFrame using pandas and the same index as every other database
+
+            self.correctItems = []
             
-            description = []
-            price = []
-            entry_name = []
-            entry_id = []
+            self.description = []
+            self.price = []
+            self.entry_name = []
+            self.entry_id = []
 
             #### Storing info. for new food_item 
 
-            new_item_name = []
-            new_item_description = []
-            new_item_price = []
-            new_item_entry_name = []
-            new_item_entry_id = []
-            new_item_res = []
+            self.new_item_name = []
+            self.new_item_description = []
+            self.new_item_price = []
+            self.new_item_entry_name = []
+            self.new_item_entry_id = []
+            self.new_item_res = []
 
             if  jsonData2['response']['menu']['menus']['count'] == 0:
                 print 'Menu not found'
 
             else: # Menu has been found
+                print(" Menu found")
                 path = jsonData2['response']['menu']['menus']['items'][0]['entries']
+                #print(path)
                 num_entries = path['count']
-                self.food_items = self.food_items[:4]  ## Just a few data points to test the code
+                #print(len(path)-1)
+                #print(path['count'])
+                #This is from our DB. 
+                self.food_items = self.food_items[:]  ## Just a few data points to test the code
+                #These are our food items. 
 
-                for i,l in zip(self.food_items, self.res_names):
-                    for j in range(num_entries):
-                        num_items = path['items'][j]['entries']['count']
-                        for k in range(num_items):
-                            if i == path['items'][j]['entries']['items'][k]['name']:
-                                try:
-                                    description.append(path['items'][j]['entries']['items'][k]['description'])
-                                    price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                                except Exception as e:
-                                    raise e
-                                else:
-                                    description.append('Not Available')
-                                    price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                            elif (self.getCosineSimilarity(i, path['items'][j]['entries']['items'][k]['name'])) > 0.7:
-                                try:
-                                    description.append(path['items'][j]['entries']['items'][k]['description'])
-                                    price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    entry_name.append(path['items'][j]['name'])
-                                    entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                                except Exception as e:
-                                    raise e
-                                else:
-                                    description.append('Not Available')
-                                    price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    entry_name.append(path['items'][j]['name'])
-                                    entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                            else:
-                                try:
-                                    print '{} is NOT EQUAL to {}'.format(i, path['items'][j]['entries']['items'][k]['name'])
-                                    print 'STORING NEW FOOD ITEM INFORMATION........'
-                                    print type(path['items'][j]['entries']['items'][k]['name'])
-                                    new_item_description.append(path['items'][j]['entries']['items'][k]['description'])
-                                    new_item_price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    new_item_entry_name.append(path['items'][j]['name'])
-                                    new_item_entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                                    new_item_name.append(path['items'][j]['entries']['items'][k]['name'])
-                                    new_item_res.append(l) # To keep track of food item belonging to what restaurant
-                                except Exception as e:
-                                    pass
-                                else:
-                                    new_item_description.append('Not Available')
-                                    new_item_price.append(path['items'][j]['entries']['items'][k]['price'])
-                                    new_item_entry_name.append(path['items'][j]['name'])
-                                    new_item_entry_id.append(path['items'][j]['entries']['items'][k]['entryId'])
-                                    new_item_name.append(path['items'][j]['entries']['items'][k]['name'])
-                                    new_item_res.append(l)
+                #Make sure to only pass the resaurant that corresponds to us. 
+
+                foodItemsAtOneRest = getFoodItems()
+
+                for i,l in zip(self.food_items, self.res_names): # Loop our database. 
+                    #continue
+                    #print("Testing item: " , i)
+                    self.locateAndSaveInformation(i,l,path)
+            print("Done...")
+            print("\n===================================")
+            print("============   Results    =================")
+            print("============              =================")
+            print("\n")
+            print(self.correctItems)
+            #Now perhaps just list it out.
+            # Rest \t foodName \t description
+            for val in self.correctItems:
+                print("\t"+str(val['restName'])+"\t"+str(val['ourMenuName'])+ "\t" + str(val['name'])+"\t"+str(val['description']))
+            #print(self.description)
+            #print(self.price)
+            #print(self.entry_id)
+            #print(self.entry_name)
+            #print('\n')
+            #print(self.new_item_description)
+            #print(self.new_item_name)
                             
                 
                         
 if __name__ == "__main__":
     des = GetDescriptorWords()
     coord_latlng = des.getlatLng(Google_API_KEY)
+    print("All latitutdes and longitudes for the restaurants: ")
+    print(coord_latlng)
     des.getMenu(coord_latlng)
