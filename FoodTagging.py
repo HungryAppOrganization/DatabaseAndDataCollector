@@ -282,7 +282,7 @@ class GetDescriptorWords(object):
 
                 #Make sure to only pass the resaurant that corresponds to us. 
 
-                foodItemsAtOneRest = getFoodItems()
+                #foodItemsAtOneRest = getFoodItems()
 
                 for i,l in zip(self.food_items, self.res_names): # Loop our database. 
                     #continue
